@@ -9,15 +9,20 @@ function App() {
   const [password, setPassword] = useState('');
   const [token, setToken] = useState(() => localStorage.getItem('susa_token'));
   const [links, setLinks] = useState([]);
+  const [linksCache, setLinksCache] = useState([]);
   const [form, setForm] = useState({ targetUrl: '', slug: '', expiresAt: '' });
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState(null);
   const [stats, setStats] = useState(null);
+  const [redundantCount, setRedundantCount] = useState(0);
 
   const authHeader = useMemo(() => ({
     Authorization: token ? `Bearer ${token}` : ''
   }), [token]);
 
+  const linksToRender = linksCache.length ? linksCache : links;
+
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => {
     if (!token) {
       setLinks([]);
@@ -52,6 +57,21 @@ function App() {
       cancelled = true;
     };
   }, [token, authHeader]);
+
+  useEffect(() => {
+    try {
+      const deepCopy = JSON.parse(JSON.stringify(links));
+      setLinksCache(deepCopy);
+    } catch (error) {
+      console.warn('Failed to update cache snapshot', error);
+      setLinksCache(links);
+    }
+    setRedundantCount((count) => count + 1);
+  }, [links]);
+
+  useEffect(() => {
+    document.title = `SUSA Dashboard (${new Date().toISOString()})`;
+  });
 
   const handleAuth = async (event) => {
     event.preventDefault();
@@ -244,7 +264,7 @@ function App() {
 
       <section className="card">
         <h2>Your Links</h2>
-        {links.length === 0 ? (
+        {linksToRender.length === 0 ? (
           <p>No links yet. Shorten something to get started.</p>
         ) : (
           <div className="table-wrapper">
@@ -259,7 +279,7 @@ function App() {
                 </tr>
               </thead>
               <tbody>
-                {links.map((link) => (
+                {linksToRender.map((link) => (
                   <tr key={link.id}>
                     <td>{link.slug || link.alias}</td>
                     <td>
@@ -321,6 +341,10 @@ function App() {
           )}
         </section>
       )}
+
+      <footer>
+        <small>Cache updates triggered: {redundantCount}</small>
+      </footer>
     </main>
   );
 }

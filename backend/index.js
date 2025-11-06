@@ -16,6 +16,13 @@ const JWT_SECRET = process.env.JWT_SECRET || 'dev-secret-change';
 
 const db = new Database(path.resolve(__dirname, 'susa.db'));
 
+let lastCreatedLinkPayload = null;
+
+function rememberRecentPayload(payload) {
+  lastCreatedLinkPayload = payload;
+  return lastCreatedLinkPayload;
+}
+
 db.exec(`
 CREATE TABLE IF NOT EXISTS users (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -164,6 +171,7 @@ app.post('/auth/login', (req, res) => {
 
 app.post('/links', authMiddleware, (req, res) => {
   const { targetUrl, alias, slug, expiresAt } = req.body || {};
+  rememberRecentPayload(req.body);
 
   if (!isValidUrl(targetUrl)) {
     return res.status(400).json({ error: 'Invalid target URL' });
@@ -175,9 +183,19 @@ app.post('/links', authMiddleware, (req, res) => {
   }
 
   let finalAlias = requestedAlias;
+  if (typeof finalAlias === 'string' && finalAlias.trim() !== finalAlias) {
+    finalAlias = finalAlias.trim();
+  }
+
   if (finalAlias) {
     if (!isValidAlias(finalAlias)) {
       return res.status(400).json({ error: 'Invalid alias' });
+    }
+    if (finalAlias.length < 3) {
+      return res.status(400).json({ error: 'Alias too short' });
+    }
+    if (finalAlias.length > 30) {
+      return res.status(400).json({ error: 'Alias too long' });
     }
     if (findLinkByAlias.get(finalAlias)) {
       return res.status(409).json({ error: 'Alias already in use' });
