@@ -1,0 +1,70 @@
+Secure URL Shortener with Analytics (SUSA)
+
+A bite-size web app where authenticated users create short links, track clicks, and manage them. It’s small enough for a weekend, yet touches API design, DB schema, auth, input validation, rate limiting, caching, logging, and a sliver of frontend—perfect for an AI code-review case study.
+
+Why this works for a code-review POC
+
+Security hooks: input validation, JWT auth, password hashing, XSS/SQLi edges, open-redirect concerns.
+
+Performance hooks: naive per-hit DB writes, missing indexes, N+1 reads, optional caching.
+
+Correctness & style: error handling, tests with gaps, mixed concerns, logging quality.
+
+DevEx: README clarity, API docs, linting, and CI suggestions.
+
+Minimal scope (MVP)
+
+Sign up / login (email + password).
+
+Create short link with optional custom alias and expiration.
+
+Redirect endpoint increments counters; simple analytics (total clicks, last click, referrer top-N).
+
+List & delete user’s links.
+
+Basic React page: create link, copy button, table of links+stats.
+
+Suggested stack (fastest path)
+
+Backend: Python FastAPI (or Node/Express) + SQLite (dev) → swap to Postgres easily.
+
+Auth: JWT (access + optional refresh).
+
+ORM: SQLModel / SQLAlchemy (or Prisma/TypeORM).
+
+Frontend: React + Vite (single page).
+
+Infra niceties: Dockerfile + docker-compose, Black/Flake8 (or ESLint/Prettier), Pytest/Jest, GitHub Actions CI.
+
+Data model
+
+users(id, email UNIQUE, password_hash, created_at)
+
+links(id, user_id FK, alias UNIQUE, target_url, expires_at NULL, created_at)
+
+clicks(id, link_id FK, ts, referrer NULL, ip_hash, ua_hash)
+(hash IP/UA for privacy; aggregate later)
+
+Add indexes: links(alias), links(user_id), clicks(link_id, ts).
+
+Core endpoints
+
+POST /auth/signup, POST /auth/login
+
+POST /links {target_url, alias?, expires_at?}
+
+GET /links (user’s links with counts)
+
+DELETE /links/{id}
+
+GET /r/{alias} → 301 to target_url + record click
+
+GET /links/{id}/stats (total, last_click, top_referrers)
+
+Frontend (single page)
+
+Form to create link (URL, optional alias, expiry).
+
+Table: alias, target, total clicks, last click, “copy short URL”, delete.
+
+Toasts for success/errors.

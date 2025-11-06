@@ -1,0 +1,24 @@
+{
+  "name": "sample-proj-01",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "dev": "concurrently \"npm run dev --prefix backend\" \"npm run dev --prefix frontend\""
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/mustafamagdy/sample-project-01.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/mustafamagdy/sample-project-01/issues"
+  },
+  "homepage": "https://github.com/mustafamagdy/sample-project-01#readme",
+  "devDependencies": {
+    "concurrently": "^9.2.1"
+  }
+}
