@@ -9,7 +9,7 @@ function App() {
   const [password, setPassword] = useState('');
   const [token, setToken] = useState(() => localStorage.getItem('susa_token'));
   const [links, setLinks] = useState([]);
-  const [form, setForm] = useState({ targetUrl: '', alias: '', expiresAt: '' });
+  const [form, setForm] = useState({ targetUrl: '', slug: '', expiresAt: '' });
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState(null);
   const [stats, setStats] = useState(null);
@@ -34,7 +34,8 @@ function App() {
         }
         const data = await res.json();
         if (!cancelled) {
-          setLinks(data.links || []);
+          const normalised = (data.links || []).map((link) => ({ ...link, slug: link.slug || link.alias }));
+          setLinks(normalised);
         }
       } catch (err) {
         console.error(err);
@@ -97,7 +98,7 @@ function App() {
         },
         body: JSON.stringify({
           targetUrl: form.targetUrl.trim(),
-          alias: form.alias.trim() || undefined,
+          slug: form.slug.trim() || undefined,
           expiresAt: form.expiresAt || undefined
         })
       });
@@ -105,8 +106,9 @@ function App() {
       if (!response.ok) {
         throw new Error(body.error || 'Could not create link');
       }
-      setLinks((prev) => [body, ...prev]);
-      setForm({ targetUrl: '', alias: '', expiresAt: '' });
+      const normalised = { ...body, slug: body.slug || body.alias };
+      setLinks((prev) => [normalised, ...prev]);
+      setForm({ targetUrl: '', slug: '', expiresAt: '' });
       setMessage({ type: 'success', text: 'Link created' });
     } catch (err) {
       setMessage({ type: 'error', text: err.message });
@@ -163,7 +165,13 @@ function App() {
       if (!res.ok) {
         throw new Error(body.error || 'Could not load stats');
       }
-      setStats(body);
+      setStats({
+        ...body,
+        link: {
+          ...body.link,
+          slug: body.link?.slug || body.link?.alias
+        }
+      });
     } catch (err) {
       setMessage({ type: 'error', text: err.message });
     }
@@ -219,8 +227,8 @@ function App() {
             <input type="url" required value={form.targetUrl} onChange={(e) => setForm((f) => ({ ...f, targetUrl: e.target.value }))} />
           </label>
           <label>
-            Alias (optional)
-            <input value={form.alias} onChange={(e) => setForm((f) => ({ ...f, alias: e.target.value }))} placeholder="custom-slug" />
+            Slug (optional)
+            <input value={form.slug} onChange={(e) => setForm((f) => ({ ...f, slug: e.target.value }))} placeholder="custom-slug" />
           </label>
           <label>
             Expires At
@@ -243,7 +251,7 @@ function App() {
             <table>
               <thead>
                 <tr>
-                  <th>Alias</th>
+                  <th>Slug</th>
                   <th>Target</th>
                   <th>Total Clicks</th>
                   <th>Last Click</th>
@@ -253,7 +261,7 @@ function App() {
               <tbody>
                 {links.map((link) => (
                   <tr key={link.id}>
-                    <td>{link.alias}</td>
+                    <td>{link.slug || link.alias}</td>
                     <td>
                       <a href={link.targetUrl} target="_blank" rel="noreferrer">
                         {link.targetUrl}
@@ -291,7 +299,7 @@ function App() {
             </button>
           </div>
           <p>
-            <strong>Alias:</strong> {stats.link.alias}
+            <strong>Slug:</strong> {stats.link.slug || stats.link.alias}
           </p>
           <p>
             <strong>Total clicks:</strong> {stats.stats.totalClicks}
