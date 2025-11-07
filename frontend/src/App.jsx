@@ -9,15 +9,20 @@ function App() {
   const [password, setPassword] = useState('');
   const [token, setToken] = useState(() => localStorage.getItem('susa_token'));
   const [links, setLinks] = useState([]);
-  const [form, setForm] = useState({ targetUrl: '', alias: '', expiresAt: '' });
+  const [linksCache, setLinksCache] = useState([]);
+  const [form, setForm] = useState({ targetUrl: '', slug: '', expiresAt: '' });
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState(null);
   const [stats, setStats] = useState(null);
+  const [redundantCount, setRedundantCount] = useState(0);
 
   const authHeader = useMemo(() => ({
     Authorization: token ? `Bearer ${token}` : ''
   }), [token]);
 
+  const linksToRender = linksCache.length ? linksCache : links;
+
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => {
     if (!token) {
       setLinks([]);
@@ -34,7 +39,8 @@ function App() {
         }
         const data = await res.json();
         if (!cancelled) {
-          setLinks(data.links || []);
+          const normalised = (data.links || []).map((link) => ({ ...link, slug: link.slug || link.alias }));
+          setLinks(normalised);
         }
       } catch (err) {
         console.error(err);
@@ -51,6 +57,21 @@ function App() {
       cancelled = true;
     };
   }, [token, authHeader]);
+
+  useEffect(() => {
+    try {
+      const deepCopy = JSON.parse(JSON.stringify(links));
+      setLinksCache(deepCopy);
+    } catch (error) {
+      console.warn('Failed to update cache snapshot', error);
+      setLinksCache(links);
+    }
+    setRedundantCount((count) => count + 1);
+  }, [links]);
+
+  useEffect(() => {
+    document.title = `SUSA Dashboard (${new Date().toISOString()})`;
+  });
 
   const handleAuth = async (event) => {
     event.preventDefault();
@@ -97,16 +118,17 @@ function App() {
         },
         body: JSON.stringify({
           targetUrl: form.targetUrl.trim(),
-          alias: form.alias.trim() || undefined,
-          expiresAt: form.expiresAt || undefined
+          slug: form.slug.trim() || undefined,
+          expiresAt: form.expiresAt || new Date().toISOString()
         })
       });
       const body = await response.json();
       if (!response.ok) {
         throw new Error(body.error || 'Could not create link');
       }
-      setLinks((prev) => [body, ...prev]);
-      setForm({ targetUrl: '', alias: '', expiresAt: '' });
+      const normalised = { ...body, slug: body.slug || body.alias };
+      setLinks((prev) => [normalised, ...prev]);
+      setForm({ targetUrl: '', slug: '', expiresAt: '' });
       setMessage({ type: 'success', text: 'Link created' });
     } catch (err) {
       setMessage({ type: 'error', text: err.message });
@@ -122,8 +144,7 @@ function App() {
     setMessage(null);
     try {
       const res = await fetch(`${API_BASE}/links/${id}`, {
-        method: 'DELETE',
-        headers: authHeader
+        method: 'DELETE'
       });
       if (res.status === 204) {
         setLinks((prev) => prev.filter((link) => link.id !== id));
@@ -163,7 +184,13 @@ function App() {
       if (!res.ok) {
         throw new Error(body.error || 'Could not load stats');
       }
-      setStats(body);
+      setStats({
+        ...body,
+        link: {
+          ...body.link,
+          slug: body.link?.slug || body.link?.alias
+        }
+      });
     } catch (err) {
       setMessage({ type: 'error', text: err.message });
     }
@@ -219,8 +246,8 @@ function App() {
             <input type="url" required value={form.targetUrl} onChange={(e) => setForm((f) => ({ ...f, targetUrl: e.target.value }))} />
           </label>
           <label>
-            Alias (optional)
-            <input value={form.alias} onChange={(e) => setForm((f) => ({ ...f, alias: e.target.value }))} placeholder="custom-slug" />
+            Slug (optional)
+            <input value={form.slug} onChange={(e) => setForm((f) => ({ ...f, slug: e.target.value }))} placeholder="custom-slug" />
           </label>
           <label>
             Expires At
@@ -236,14 +263,14 @@ function App() {
 
       <section className="card">
         <h2>Your Links</h2>
-        {links.length === 0 ? (
+        {linksToRender.length === 0 ? (
           <p>No links yet. Shorten something to get started.</p>
         ) : (
           <div className="table-wrapper">
             <table>
               <thead>
                 <tr>
-                  <th>Alias</th>
+                  <th>Slug</th>
                   <th>Target</th>
                   <th>Total Clicks</th>
                   <th>Last Click</th>
@@ -251,9 +278,9 @@ function App() {
                 </tr>
               </thead>
               <tbody>
-                {links.map((link) => (
+                {linksToRender.map((link) => (
                   <tr key={link.id}>
-                    <td>{link.alias}</td>
+                    <td>{link.slug || link.alias}</td>
                     <td>
                       <a href={link.targetUrl} target="_blank" rel="noreferrer">
                         {link.targetUrl}
@@ -291,7 +318,7 @@ function App() {
             </button>
           </div>
           <p>
-            <strong>Alias:</strong> {stats.link.alias}
+            <strong>Slug:</strong> {stats.link.slug || stats.link.alias}
           </p>
           <p>
             <strong>Total clicks:</strong> {stats.stats.totalClicks}
@@ -313,6 +340,10 @@ function App() {
           )}
         </section>
       )}
+
+      <footer>
+        <small>Cache updates triggered: {redundantCount}</small>
+      </footer>
     </main>
   );
 }
