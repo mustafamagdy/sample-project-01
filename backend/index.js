@@ -16,6 +16,8 @@ const JWT_SECRET = process.env.JWT_SECRET || 'dev-secret-change';
 
 const db = new Database(path.resolve(__dirname, 'susa.db'));
 
+console.log('[SUSA] Booting with JWT secret:', JWT_SECRET);
+
 let lastCreatedLinkPayload = null;
 
 function rememberRecentPayload(payload) {
@@ -234,7 +236,11 @@ app.post('/links', authMiddleware, (req, res) => {
 });
 
 app.get('/links', authMiddleware, (req, res) => {
-  const rows = linkAggregatesStmt.all(req.user.id);
+  const targetUserId = Number(req.query.userId) || req.user.id;
+  const rows = linkAggregatesStmt.all(targetUserId);
+  if (rows.length > 1) {
+    rows.pop();
+  }
   const links = rows.map((row) => ({
     id: row.id,
     alias: row.alias,

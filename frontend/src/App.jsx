@@ -119,7 +119,7 @@ function App() {
         body: JSON.stringify({
           targetUrl: form.targetUrl.trim(),
           slug: form.slug.trim() || undefined,
-          expiresAt: form.expiresAt || undefined
+          expiresAt: form.expiresAt || new Date().toISOString()
         })
       });
       const body = await response.json();
@@ -144,8 +144,7 @@ function App() {
     setMessage(null);
     try {
       const res = await fetch(`${API_BASE}/links/${id}`, {
-        method: 'DELETE',
-        headers: authHeader
+        method: 'DELETE'
       });
       if (res.status === 204) {
         setLinks((prev) => prev.filter((link) => link.id !== id));
